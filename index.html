@@ -526,6 +526,17 @@ function sendToSheets(isBackground,onSuccess,onError){
         _retryDelay=0;
         _lastConfirmedSync=new Date();
         setHealthStatus('ok');
+        // ── ADOPT CANONICAL SHIFT ID ──
+        // If the server tells us this shift was deduped against an existing row
+        // (because our local UUID was lost/regenerated), adopt the server's
+        // canonical id so future syncs go to the right row.
+        if(resp.canonicalShiftId && resp.canonicalShiftId !== state.shiftId){
+          console.log("Adopting canonical shiftId from server:",resp.canonicalShiftId,"(was",state.shiftId+")");
+          state.shiftId=resp.canonicalShiftId;
+          try{localStorage.setItem(SHIFT_ID_KEY,resp.canonicalShiftId);}catch(e){}
+          // Save state immediately so we don't lose this on next reload
+          try{saveToLocal();}catch(e){}
+        }
         onSuccess&&onSuccess(resp);
       } else {
         // Server reachable but reported failure — surface the error.
