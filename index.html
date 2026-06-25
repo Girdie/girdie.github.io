@@ -133,6 +133,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
           <option>Jeffersonville</option><option>Glen Mills</option><option>Bella Vista</option>
           <option>Indian Spring</option><option>Walnut Lane</option><option>John F. Byrne</option>
           <option>Landis Creek</option><option>Mainland</option><option>Bluestone</option><option>Spring Hollow</option>
+          <option>Broad Run</option><option>Linfield</option>
         </select>
       </div>
     </div>
@@ -149,6 +150,18 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div class="field"><label>Gift Cards &#x2014; End</label><input type="number" id="giftCardsEnd" min="0" step="1" placeholder="e.g. 42" inputmode="numeric" oninput="onHeaderChange()"></div>
     </div>
     <div class="shift-id-box" id="shiftIdBox" style="display:none">&#x1F511; Shift ID: <strong id="shiftIdLabel"></strong></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Hats</div>
+    <div class="row2">
+      <div class="field"><label>Hats &#x2014; Start</label><input type="number" id="hatsStart" min="0" step="1" placeholder="e.g. 20" inputmode="numeric" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Hats &#x2014; End</label><input type="number" id="hatsEnd" min="0" step="1" placeholder="e.g. 12" inputmode="numeric" oninput="onHeaderChange()"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Hats Sold ($40 each)</label><input type="number" id="hatsSold" min="0" step="1" placeholder="e.g. 5" inputmode="numeric" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Hats &#x2014; Given to Winners</label><input type="number" id="hatsGiven" min="0" step="1" placeholder="e.g. 3" inputmode="numeric" oninput="onHeaderChange()"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -190,7 +203,7 @@ const STORAGE_KEY = "girdie_shift_v3";
 const SHIFT_ID_KEY = "girdie_shift_id_v1"; // separate key — survives state corruption
 const CLIENT_VERSION = "2026.05.21-syncfix"; // visible on Sheet rows for deploy tracking
 const DEFAULT_GROUPS = 55;
-let state = {header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:""}, groups:[], sheetsSubmitted:false, lastSaved:null, shiftId:null};
+let state = {header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:"",hatsStart:"",hatsEnd:"",hatsSold:"",hatsGiven:""}, groups:[], sheetsSubmitted:false, lastSaved:null, shiftId:null};
 let groupIdCounter=0, localSaveTimer=null, autoSubmitTimer=null, _sheetSyncTimer=null, _submitting=false;
 let _lastSyncHash='', _healthTimer=null, _consecutiveFailures=0;
 // New sync globals
@@ -258,7 +271,7 @@ function loadFromLocal(){
     state={...state,...saved};
     if(state.groups&&state.groups.length>0){const maxId=Math.max(...state.groups.map(g=>g.id||0));groupIdCounter=maxId+1;}
     const h=state.header;
-    ["staffName","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=h[id]||"";});
+    ["staffName","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=h[id]||"";});
     document.getElementById("date").value=h.date||todayStr();
     if(state.lastSaved)setLocalStatus("saved");
     if(state.sheetsSubmitted)setSheetsStatus("ok","&#x2713; Saved to Sheets");
@@ -372,6 +385,10 @@ function onHeaderChange(){
   h.endTime=document.getElementById("endTime").value;
   h.giftCardsStart=document.getElementById("giftCardsStart").value;
   h.giftCardsEnd=document.getElementById("giftCardsEnd").value;
+  h.hatsStart=document.getElementById("hatsStart").value;
+  h.hatsEnd=document.getElementById("hatsEnd").value;
+  h.hatsSold=document.getElementById("hatsSold").value;
+  h.hatsGiven=document.getElementById("hatsGiven").value;
   state.shiftId=getOrCreateShiftId(h);
   const idBox=document.getElementById("shiftIdBox");
   const idLabel=document.getElementById("shiftIdLabel");
@@ -418,7 +435,9 @@ function updateSummary(){
   const t=computeTotals();
   const hours=calcHours();
   const totalDonations=t.donationCash+t.donationElec;
-  const totalCash=(t.cash+t.electronic)*20+totalDonations;
+  // Cash Collected = physical cash only: cash green fees ($20 each) + cash donations.
+  // Electronic green fees and electronic donations are intentionally excluded.
+  const totalCash=(t.cash*20)+t.donationCash;
   const filled=state.groups.filter(g=>g.golfers!==null||g.paying!==null||g.cash!==null||g.electronic!==null);
   document.getElementById("groupCount").textContent=filled.length;
   document.getElementById("sGolfers").textContent=t.golfers;
@@ -479,7 +498,11 @@ function buildPayload(isBackground){
     isBackground:isBackground||false,groups:filledGroups,
     giftCardsStart:parseInt(h.giftCardsStart)||0,
     giftCardsEnd:parseInt(h.giftCardsEnd)||0,
-    giftCardsUsed:(parseInt(h.giftCardsStart)||0)-(parseInt(h.giftCardsEnd)||0)
+    giftCardsUsed:(parseInt(h.giftCardsStart)||0)-(parseInt(h.giftCardsEnd)||0),
+    hatsStart:parseInt(h.hatsStart)||0,
+    hatsEnd:parseInt(h.hatsEnd)||0,
+    hatsSold:parseInt(h.hatsSold)||0,
+    hatsGiven:parseInt(h.hatsGiven)||0
   };
 }
 
@@ -701,9 +724,9 @@ function newShift(){
   groupIdCounter=0;
   _lastSyncHash='';
   _corruptionDetected=false;
-  state={header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:""},groups:[],sheetsSubmitted:false,lastSaved:null,shiftId:null};
+  state={header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:"",hatsStart:"",hatsEnd:"",hatsSold:"",hatsGiven:""},groups:[],sheetsSubmitted:false,lastSaved:null,shiftId:null};
   for(let i=0;i<DEFAULT_GROUPS;i++)state.groups.push(newGroup());
-  ["staffName","station","startTime","endTime","giftCardsStart","giftCardsEnd"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["staffName","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("course").value="";
   document.getElementById("date").value=todayStr();
   const btn=document.getElementById("submitBtn");
