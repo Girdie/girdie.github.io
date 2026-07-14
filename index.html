@@ -190,6 +190,17 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div class="s-stat"><div class="s-val teal" id="sCash">$0</div><div class="s-label">Cash Collected</div></div>
       <div class="s-stat"><div class="s-val gold" id="sDonations">$0</div><div class="s-label">Donations</div></div>
     </div>
+    <div class="summary-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="s-stat"><div class="s-val" id="sGCStart">0</div><div class="s-label">GC Start</div></div>
+      <div class="s-stat"><div class="s-val" id="sGCEnd">0</div><div class="s-label">GC End</div></div>
+      <div class="s-stat"><div class="s-val teal" id="sGCGiven">0</div><div class="s-label">GC Given</div></div>
+    </div>
+    <div class="summary-grid">
+      <div class="s-stat"><div class="s-val" id="sHatsStart">0</div><div class="s-label">Hats Start</div></div>
+      <div class="s-stat"><div class="s-val" id="sHatsEnd">0</div><div class="s-label">Hats End</div></div>
+      <div class="s-stat"><div class="s-val gold" id="sHatsSold">0</div><div class="s-label">Hats Sold</div></div>
+      <div class="s-stat"><div class="s-val teal" id="sHatsGiven">0</div><div class="s-label">Hats Given</div></div>
+    </div>
   </div>
 
   <div class="action-row">
@@ -448,6 +459,16 @@ function updateSummary(){
   document.getElementById("sGolfersHr").textContent=hours&&t.golfers>0?(t.golfers/hours).toFixed(1):"--";
   document.getElementById("sCash").textContent="$"+(totalCash).toFixed(0);
   document.getElementById("sDonations").textContent="$"+totalDonations.toFixed(2);
+  // Gift card + hat inventory (from the header fields)
+  const h2=state.header;
+  const gcS=parseInt(h2.giftCardsStart)||0, gcE=parseInt(h2.giftCardsEnd)||0;
+  document.getElementById("sGCStart").textContent=gcS;
+  document.getElementById("sGCEnd").textContent=gcE;
+  document.getElementById("sGCGiven").textContent=gcS-gcE;
+  document.getElementById("sHatsStart").textContent=parseInt(h2.hatsStart)||0;
+  document.getElementById("sHatsEnd").textContent=parseInt(h2.hatsEnd)||0;
+  document.getElementById("sHatsSold").textContent=parseInt(h2.hatsSold)||0;
+  document.getElementById("sHatsGiven").textContent=parseInt(h2.hatsGiven)||0;
 }
 
 function renderAll(){renderGroups();updateSummary();updateTopbar();onHeaderChange();}
