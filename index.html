@@ -93,6 +93,15 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .summary-bar { background: #1a2040; border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
 .summary-bar-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 12px; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+.win-list { margin-bottom: 10px; }
+.win-row { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 6px; }
+.win-row .notes-input { padding: 8px 10px; margin-bottom: 6px; background: white; }
+.win-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+.win-btn { height: 40px; background: white; border: 2px solid var(--border); border-radius: 8px; color: var(--text-dim); font-size: 12px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; touch-action: manipulation; padding: 0 4px; }
+.win-btn.active { background: #2ab8d0; border-color: #2ab8d0; color: white; }
+.win-btn.active.hat { background: #e87820; border-color: #e87820; }
+.past-banner { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
+.past-banner button { margin-top: 8px; width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--green); color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
 .s-stat { background: rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 6px; text-align: center; }
 .s-val { font-size: 20px; font-weight: 700; color: white; font-family: 'Playfair Display', serif; }
 .s-val.gold { color: #e87820; }
@@ -123,44 +132,55 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   </div>
 </div>
 <div class="main">
+  <div id="pastBanner" class="past-banner" style="display:none"><div id="pastBannerMsg"></div><button onclick="startShiftForToday()">Start today's shift</button></div>
   <div class="card">
     <div class="section-title">Shift Info</div>
     <div class="row2">
-      <div class="field"><label>Staff Name</label><input type="text" id="staffName" placeholder="e.g. Liz" oninput="onHeaderChange()"></div>
+      <div class="field"><label>First Name</label><input type="text" id="staffFirst" placeholder="e.g. Liz" autocomplete="given-name" oninput="onHeaderInput()"></div>
+      <div class="field"><label>Last Name</label><input type="text" id="staffLast" placeholder="Required" autocomplete="family-name" oninput="onHeaderInput()"></div>
+    </div>
+    <div class="row2">
       <div class="field"><label>Course</label>
-        <select id="course" onchange="onHeaderChange()">
+        <!-- Keep in step with COURSES in Code.js. Values are the Sheet's labels. -->
+        <select id="course" onchange="onHeaderInput()">
           <option value="">Select...</option>
-          <option>Jeffersonville</option><option>Glen Mills</option><option>Bella Vista</option>
-          <option>Indian Spring</option><option>Walnut Lane</option><option>John F. Byrne</option>
-          <option>Landis Creek</option><option>Mainland</option><option>Bluestone</option><option>Spring Hollow</option>
-          <option>Broad Run</option><option>Linfield</option><option>Rancocas Golf Club</option>
+          <option>Bella Vista</option><option>Bluestone</option><option>Broad Run</option>
+          <option>Glen Mills</option><option>Indian Spring</option><option>Jacaranda</option>
+          <option>Jeffersonville</option><option>John F. Byrne</option><option>Landis Creek</option>
+          <option>Linfield</option><option>Mainland</option><option>Morgan Hill</option>
+          <option value="Rancocas Golf Club">Rancocas</option><option>Spring Hollow</option><option>Walnut Lane</option>
         </select>
       </div>
+      <div class="field"><label>Hole #</label><input type="text" id="station" placeholder="e.g. 4" inputmode="numeric" pattern="[0-9]*" oninput="onHeaderInput()"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Date</label><input type="date" id="date" oninput="onHeaderChange()"></div>
-      <div class="field"><label>Hole / Station</label><input type="text" id="station" placeholder="e.g. 4" inputmode="numeric" pattern="[0-9]*" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Date</label><input type="date" id="date" oninput="onHeaderInput()"></div>
+      <div></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Start Time</label><input type="time" id="startTime" oninput="onHeaderChange()"></div>
-      <div class="field"><label>End Time</label><input type="time" id="endTime" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Start Time</label><input type="time" id="startTime" oninput="onHeaderInput()"></div>
+      <div class="field"><label>End Time</label><input type="time" id="endTime" oninput="onHeaderInput()"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Gift Cards &#x2014; Start</label><input type="number" id="giftCardsStart" min="0" step="1" placeholder="e.g. 50" inputmode="numeric" oninput="onHeaderChange()"></div>
-      <div class="field"><label>Gift Cards &#x2014; End</label><input type="number" id="giftCardsEnd" min="0" step="1" placeholder="e.g. 42" inputmode="numeric" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Gift Cards: Start</label><input type="number" id="giftCardsStart" min="0" step="1" placeholder="e.g. 50" inputmode="numeric" oninput="onHeaderInput()"></div>
+      <div class="field"><label>Gift Cards: End</label><input type="number" id="giftCardsEnd" min="0" step="1" placeholder="e.g. 42" inputmode="numeric" oninput="onHeaderInput()"></div>
     </div>
     <div class="shift-id-box" id="shiftIdBox" style="display:none">&#x1F511; Shift ID: <strong id="shiftIdLabel"></strong></div>
   </div>
 
   <div class="card">
-    <div class="section-title">Hats</div>
+    <div class="section-title">Hats and Drink Vouchers</div>
     <div class="row2">
-      <div class="field"><label>Hats &#x2014; Start</label><input type="number" id="hatsStart" min="0" step="1" placeholder="e.g. 20" inputmode="numeric" oninput="onHeaderChange()"></div>
-      <div class="field"><label>Hats &#x2014; End</label><input type="number" id="hatsEnd" min="0" step="1" placeholder="e.g. 12" inputmode="numeric" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Hats: Start</label><input type="number" id="hatsStart" min="0" step="1" placeholder="e.g. 20" inputmode="numeric" oninput="onHeaderInput()"></div>
+      <div class="field"><label>Hats: End</label><input type="number" id="hatsEnd" min="0" step="1" placeholder="e.g. 12" inputmode="numeric" oninput="onHeaderInput()"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Hats Sold ($40 each)</label><input type="number" id="hatsSold" min="0" step="1" placeholder="e.g. 5" inputmode="numeric" oninput="onHeaderChange()"></div>
-      <div class="field"><label>Hats &#x2014; Given to Winners</label><input type="number" id="hatsGiven" min="0" step="1" placeholder="e.g. 3" inputmode="numeric" oninput="onHeaderChange()"></div>
+      <div class="field"><label>Hats Sold ($40 each)</label><input type="number" id="hatsSold" min="0" step="1" placeholder="e.g. 5" inputmode="numeric" oninput="onHeaderInput()"></div>
+      <div class="field"><label>Hats Given to Winners</label><input type="number" id="hatsGiven" min="0" step="1" placeholder="e.g. 3" inputmode="numeric" oninput="onHeaderInput()"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Drink Vouchers Used</label><input type="number" id="vouchersUsed" min="0" step="1" placeholder="0 if none" inputmode="numeric" oninput="onHeaderInput()"></div>
+      <div></div>
     </div>
   </div>
 
@@ -201,6 +221,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div class="s-stat"><div class="s-val gold" id="sHatsSold">0</div><div class="s-label">Hats Sold</div></div>
       <div class="s-stat"><div class="s-val teal" id="sHatsGiven">0</div><div class="s-label">Hats Given</div></div>
     </div>
+    <div class="summary-grid">
+      <div class="s-stat"><div class="s-val" id="sVouchers">0</div><div class="s-label">Vouchers</div></div>
+      <div class="s-stat"><div class="s-val" id="sHatsOffered">0</div><div class="s-label">Hat Offered</div></div>
+      <div class="s-stat"><div class="s-val gold" id="sHatsChosen">0</div><div class="s-label">Took Hat</div></div>
+      <div class="s-stat"><div class="s-val teal" id="sGCAwarded">0</div><div class="s-label">Took Card</div></div>
+    </div>
   </div>
 
   <div class="action-row">
@@ -212,9 +238,13 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmFGW57_kXIyj8yJnYX6b2ThhhJEyW7pJcgAhvDOkChx9UuDxVsZDtpWXqpoOF9LI/exec";
 const STORAGE_KEY = "girdie_shift_v3";
 const SHIFT_ID_KEY = "girdie_shift_id_v1"; // separate key — survives state corruption
-const CLIENT_VERSION = "2026.05.21-syncfix"; // visible on Sheet rows for deploy tracking
+const PREV_SHIFT_KEY = "girdie_prev_shift_v1"; // copy of a past shift, kept when "Start today's shift" replaces it
+const CLIENT_VERSION = "2026.10.29-p03"; // written to the Sheet's Client Version column
 const DEFAULT_GROUPS = 55;
-let state = {header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:"",hatsStart:"",hatsEnd:"",hatsSold:"",hatsGiven:""}, groups:[], sheetsSubmitted:false, lastSaved:null, shiftId:null};
+// Header fields bound one-to-one to an <input>/<select> with the same id.
+const HEADER_FIELDS = ["staffFirst","staffLast","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven","vouchersUsed"];
+function blankHeader(){const h={staffName:""};HEADER_FIELDS.forEach(k=>{h[k]="";});h.date=todayStr();return h;}
+let state = {header:blankHeader(), groups:[], sheetsSubmitted:false, lastSaved:null, shiftId:null, pastShiftAck:null};
 let groupIdCounter=0, localSaveTimer=null, autoSubmitTimer=null, _sheetSyncTimer=null, _submitting=false;
 let _lastSyncHash='', _healthTimer=null, _consecutiveFailures=0;
 // New sync globals
@@ -225,7 +255,12 @@ let _retryDelay=0;                      // exponential backoff after failures
 let _isScrolling=false, _scrollTimer=null;
 window.addEventListener('scroll',function(){_isScrolling=true;clearTimeout(_scrollTimer);_scrollTimer=setTimeout(()=>{_isScrolling=false;},150);},true);
 
-function todayStr(){return new Date().toISOString().split("T")[0];}
+// Phone's local calendar date as YYYY-MM-DD, built from its parts. (toISOString
+// is UTC, which rolls to tomorrow after 8pm Eastern.)
+function localDateStr(d){d=d||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function todayStr(){return localDateStr();}
+// "Thu, Oct 22" from "2026-10-22", parsed by parts (never new Date("YYYY-MM-DD")).
+function fmtDay(s){const m=String(s||"").match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(!m)return s||"";return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});}
 // shiftId is a random UUID generated once on first sync and persisted under its
 // own localStorage key. It is NEVER re-derived from editable header fields, so
 // renaming a staffer/station/course/date does NOT split the row. The legacy
@@ -282,7 +317,12 @@ function loadFromLocal(){
     state={...state,...saved};
     if(state.groups&&state.groups.length>0){const maxId=Math.max(...state.groups.map(g=>g.id||0));groupIdCounter=maxId+1;}
     const h=state.header;
-    ["staffName","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=h[id]||"";});
+    // Shifts saved before first/last name existed: split the old single name
+    // so the staffer sees it in the two boxes and can fix it.
+    if(h.staffName&&!h.staffFirst&&!h.staffLast){const p=String(h.staffName).trim().split(/\s+/);h.staffFirst=p.shift()||"";h.staffLast=p.join(" ");}
+    // Shifts saved before lastEditDay existed: the last save is the last edit.
+    if(!state.lastEditDay&&state.lastSaved){const d=new Date(state.lastSaved);if(!isNaN(d.getTime()))state.lastEditDay=localDateStr(d);}
+    HEADER_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value=h[id]||"";});
     document.getElementById("date").value=h.date||todayStr();
     if(state.lastSaved)setLocalStatus("saved");
     if(state.sheetsSubmitted)setSheetsStatus("ok","&#x2713; Saved to Sheets");
@@ -306,13 +346,42 @@ function debounceSave(){setLocalStatus("saving");clearTimeout(localSaveTimer);lo
 function setLocalStatus(s){const dot=document.getElementById("localDot");const lbl=document.getElementById("localStatus");dot.className="save-dot "+s;if(s==="saved"){const t=state.lastSaved?new Date(state.lastSaved):new Date();lbl.style.color="var(--success)";lbl.textContent="Saved "+t.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});}else if(s==="saving"){lbl.style.color="var(--gold)";lbl.textContent="Saving...";}else{lbl.style.color="var(--error)";lbl.textContent="Save error";}}
 function setSheetsStatus(type,msg){const el=document.getElementById("sheetsBadge");el.className="sheets-badge "+type;el.textContent="Sheets: "+msg;}
 
-function newGroup(){return{id:groupIdCounter++,time:"",golfers:null,paying:null,cash:null,electronic:null,hitGreen:null,hio:false,donationCash:0,donationElec:0,notes:""};}
-function addGroup(){state.groups.push(newGroup());renderGroups();updateSummary();debounceSave();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}),50);}
-function duplicateLast(){const filled=state.groups.filter(g=>g.golfers!==null||g.paying!==null||g.cash!==null||g.electronic!==null);if(filled.length===0){showError("No groups to duplicate yet.");return;}const last=filled[filled.length-1];const dupe={...last,id:groupIdCounter++,time:"",notes:"",hio:false,donationCash:0,donationElec:0};state.groups.push(dupe);renderGroups();updateSummary();debounceSave();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}),50);}
-function removeGroup(id){state.groups=state.groups.filter(g=>g.id!==id);renderGroups();updateSummary();debounceSave();}
-function setGroupField(id,field,val){const g=state.groups.find(g=>g.id===id);if(!g)return;g[field]=val;updateSummary();refreshGroupCard(id);debounceSave();debounceSheetSync();}
-function toggleHio(id){const g=state.groups.find(g=>g.id===id);if(!g)return;g.hio=!g.hio;const btn=document.getElementById("hio_"+id);if(btn){btn.className="hio-btn"+(g.hio?" active":"");btn.innerHTML=g.hio?"&#x1F3C6; HOLE-IN-ONE &#x2713;":"&#x1F3C6; Hole-in-One";}updateSummary();debounceSave();debounceSheetSync();}
-function toggleSel(id,field,val,color){if(_isScrolling)return;const g=state.groups.find(g=>g.id===id);if(!g)return;g[field]=g[field]===val?null:val;const btns=document.querySelectorAll('[data-gid="'+id+'"][data-field="'+field+'"]');btns.forEach(btn=>{const n=parseInt(btn.dataset.val);btn.className='sel-btn sel-'+color+(g[field]===n?" active":"");});updateSummary();refreshGroupCard(id);validateGroup(id);debounceSave();debounceSheetSync();}
+function newGroup(){return{id:groupIdCounter++,time:"",golfers:null,paying:null,cash:null,electronic:null,hitGreen:null,hio:false,donationCash:0,donationElec:0,notes:"",winners:[]};}
+function addGroup(){if(!guardPastShift())return;state.groups.push(newGroup());renderGroups();updateSummary();debounceSave();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}),50);}
+function duplicateLast(){if(!guardPastShift())return;const filled=state.groups.filter(g=>g.golfers!==null||g.paying!==null||g.cash!==null||g.electronic!==null);if(filled.length===0){showError("No groups to duplicate yet.");return;}const last=filled[filled.length-1];const dupe={...last,id:groupIdCounter++,time:"",notes:"",hio:false,donationCash:0,donationElec:0,winners:[]};syncWinners(dupe);state.groups.push(dupe);renderGroups();updateSummary();debounceSave();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}),50);}
+function removeGroup(id){if(!guardPastShift())return;state.groups=state.groups.filter(g=>g.id!==id);renderGroups();updateSummary();debounceSave();}
+function setGroupField(id,field,val){if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g)return;g[field]=val;updateSummary();refreshGroupCard(id);debounceSave();debounceSheetSync();}
+// ── Per-win prize record ──
+// One entry per hit-the-green in the group: winner's name, whether a hat was
+// offered, and which prize they took ("gc" = $40 gift card, "hat").
+function syncWinners(g){const n=g.hitGreen||0;if(!Array.isArray(g.winners))g.winners=[];while(g.winners.length<n)g.winners.push({name:"",hatOffered:false,prize:"gc"});if(g.winners.length>n)g.winners.length=n;}
+function winRowsHtml(g){
+  syncWinners(g);
+  if(!g.winners.length)return "";
+  return `<div class="sel-label" style="margin-bottom:6px;">Winners</div>`+g.winners.map((w,i)=>
+    `<div class="win-row">
+      <input class="notes-input" type="text" placeholder="Winner ${i+1}: first and last name" value="${(w.name||"").replace(/"/g,'&quot;')}" oninput="setWinner(${g.id},${i},this.value)">
+      <div class="win-btns">
+        <button class="win-btn${w.hatOffered?' active':''}" onclick="toggleWinner(${g.id},${i},'offer')">Hat offered</button>
+        <button class="win-btn${w.prize!=='hat'?' active':''}" onclick="toggleWinner(${g.id},${i},'gc')">Took card</button>
+        <button class="win-btn${w.prize==='hat'?' active hat':''}" onclick="toggleWinner(${g.id},${i},'hat')">Took hat</button>
+      </div>
+    </div>`).join("");
+}
+function renderWins(g){const el=document.getElementById("wins_"+g.id);if(el)el.innerHTML=winRowsHtml(g);}
+function setWinner(id,i,name){if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g||!g.winners[i])return;g.winners[i].name=name;debounceSave();debounceSheetSync();}
+function toggleWinner(id,i,what){
+  if(_isScrolling)return;
+  if(!guardPastShift())return;
+  const g=state.groups.find(g=>g.id===id);if(!g||!g.winners[i])return;
+  const w=g.winners[i];
+  if(what==="offer"){w.hatOffered=!w.hatOffered;if(!w.hatOffered)w.prize="gc";}
+  else if(what==="hat"){w.prize="hat";w.hatOffered=true;}   // a winner can only take a hat they were offered
+  else{w.prize="gc";}
+  renderWins(g);updateSummary();debounceSave();debounceSheetSync();
+}
+function toggleHio(id){if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g)return;g.hio=!g.hio;const btn=document.getElementById("hio_"+id);if(btn){btn.className="hio-btn"+(g.hio?" active":"");btn.innerHTML=g.hio?"&#x1F3C6; HOLE-IN-ONE &#x2713;":"&#x1F3C6; Hole-in-One";}updateSummary();debounceSave();debounceSheetSync();}
+function toggleSel(id,field,val,color){if(_isScrolling)return;if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g)return;g[field]=g[field]===val?null:val;const btns=document.querySelectorAll('[data-gid="'+id+'"][data-field="'+field+'"]');btns.forEach(btn=>{const n=parseInt(btn.dataset.val);btn.className='sel-btn sel-'+color+(g[field]===n?" active":"");});if(field==="hitGreen")renderWins(g);updateSummary();refreshGroupCard(id);validateGroup(id);debounceSave();debounceSheetSync();}
 function validateGroup(id){const g=state.groups.find(g=>g.id===id);if(!g)return;const warn=document.getElementById("warn_"+id);const card=document.getElementById("card_"+id);if(!warn||!card)return;const msgs=[];if(g.paying!==null&&g.golfers!==null&&g.paying>g.golfers)msgs.push("# Paying cant exceed # Golfers");if(g.cash!==null&&g.electronic!==null&&g.paying!==null&&(g.cash+g.electronic)>g.paying)msgs.push("Cash + Electronic cant exceed # Paying");if(msgs.length>0){warn.textContent="! "+msgs.join(" . ");warn.classList.add("show");card.classList.add("has-warning");}else{warn.classList.remove("show");card.classList.remove("has-warning");}}
 function refreshGroupCard(id){const g=state.groups.find(g=>g.id===id);if(!g)return;const card=document.getElementById("card_"+id);if(!card)return;const filled=g.golfers!==null||g.paying!==null||g.cash!==null||g.electronic!==null;card.classList.toggle("filled",filled);}
 
@@ -362,6 +431,7 @@ function renderGroups(){
           <button class="hio-btn${hioActive}" id="hio_${g.id}" onclick="toggleHio(${g.id})">${hioText}</button>
         </div>
       </div>
+      <div class="win-list" id="wins_${g.id}">${winRowsHtml(g)}</div>
       <div class="sel-label" style="margin-bottom:6px;margin-top:2px;">Donations</div>
       <div class="donation-row">
         <div class="sel-group"><div class="sel-label">&#x1F4B5; Cash ($)</div>
@@ -386,26 +456,64 @@ function renderGroups(){
   });
 }
 
+// A staffer typing into a header field (as opposed to the app restoring one).
+function onHeaderInput(){if(!guardPastShift())return;onHeaderChange();}
 function onHeaderChange(){
   const h=state.header;
-  h.staffName=document.getElementById("staffName").value;
-  h.course=document.getElementById("course").value;
-  h.date=document.getElementById("date").value;
-  h.station=document.getElementById("station").value;
-  h.startTime=document.getElementById("startTime").value;
-  h.endTime=document.getElementById("endTime").value;
-  h.giftCardsStart=document.getElementById("giftCardsStart").value;
-  h.giftCardsEnd=document.getElementById("giftCardsEnd").value;
-  h.hatsStart=document.getElementById("hatsStart").value;
-  h.hatsEnd=document.getElementById("hatsEnd").value;
-  h.hatsSold=document.getElementById("hatsSold").value;
-  h.hatsGiven=document.getElementById("hatsGiven").value;
+  HEADER_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)h[id]=el.value;});
+  // The Sheet's single Staffer column stays "First Last" for the workbook.
+  h.staffName=((h.staffFirst||"").trim()+" "+(h.staffLast||"").trim()).trim();
   state.shiftId=getOrCreateShiftId(h);
   const idBox=document.getElementById("shiftIdBox");
   const idLabel=document.getElementById("shiftIdLabel");
   if(state.shiftId){idBox.style.display="flex";idLabel.textContent=buildShiftLabel(h)||state.shiftId;}
   else{idBox.style.display="none";}
-  updateTopbar();updateSummary();debounceSave();debounceSheetSync();
+  updatePastBanner();updateTopbar();updateSummary();debounceSave();debounceSheetSync();
+}
+
+// ── PAST-SHIFT GUARD (the silent overwrite) ──
+// The phone keeps the last shift open across days. A staffer who comes back to
+// the same course on a later day and starts logging without tapping New Shift
+// would write today's groups over the old day's row: same id, same course,
+// same (stale) date, so the server cannot tell. Viewing an old shift is fine
+// (staffers screenshot their summaries). The first EDIT to a shift dated
+// before today, and last edited on an earlier day, stops and asks. (A shift
+// for an earlier date that was started today, e.g. a paper shift being typed
+// in, does not ask.) "Correcting the old day" is remembered for that shift for
+// the rest of today and is sent to the server, which logs it.
+function isPastShift(){const h=state.header,t=todayStr();return !!(state.shiftId&&h.date&&h.date<t&&(!state.lastEditDay||state.lastEditDay<t));}
+function pastAckKey(){return (state.shiftId||"")+"|"+todayStr();}
+function guardPastShift(){
+  if(!isPastShift()||state.pastShiftAck===pastAckKey()){state.lastEditDay=todayStr();return true;}
+  const h=state.header, day=fmtDay(h.date);
+  const msg="This shift is from "+day+(h.course?" at "+h.course:"")+".\n\n"+
+    "OK: start a NEW shift for today. Your name, course and hole carry over.\n\n"+
+    "Cancel: you are correcting the "+day+" shift.";
+  if(confirm(msg)){startShiftForToday();return false;}
+  state.pastShiftAck=pastAckKey();state.lastEditDay=todayStr();saveToLocal();updatePastBanner();
+  return true;
+}
+function updatePastBanner(){
+  const b=document.getElementById("pastBanner");if(!b)return;
+  if(isPastShift()){
+    document.getElementById("pastBannerMsg").textContent="This is your "+fmtDay(state.header.date)+" shift. Looking is fine. To log today, start today's shift.";
+    b.style.display="block";
+  }else b.style.display="none";
+}
+function startShiftForToday(){
+  const h=state.header;
+  const keep={staffFirst:h.staffFirst||"",staffLast:h.staffLast||"",course:h.course||"",station:h.station||""};
+  // Keep a copy of the old shift on the phone and send it one last time, in
+  // case its final edits never reached the Sheet. Same id, so this can only
+  // update its own row.
+  try{localStorage.setItem(PREV_SHIFT_KEY,JSON.stringify(state));}catch(e){}
+  if(state.shiftId&&!_corruptionDetected){
+    try{
+      const p=buildPayload(true);p.clientVersion=CLIENT_VERSION;p.sentAt=new Date().toISOString();
+      fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)}).catch(()=>{});
+    }catch(e){}
+  }
+  resetShift(keep);
 }
 
 function updateTopbar(){
@@ -429,9 +537,12 @@ function computeTotals(){
       hio:acc.hio+(g.hio?1:0),
       donationCash:acc.donationCash+(parseFloat(g.donationCash)||0),
       donationElec:acc.donationElec+(parseFloat(g.donationElec)||0),
+      hatsOffered:acc.hatsOffered+groupHats(g).offered,
+      hatsChosen:acc.hatsChosen+groupHats(g).chosen,
     };
-  },{golfers:0,paying:0,cash:0,electronic:0,greenHits:0,hio:0,donationCash:0,donationElec:0});
+  },{golfers:0,paying:0,cash:0,electronic:0,greenHits:0,hio:0,donationCash:0,donationElec:0,hatsOffered:0,hatsChosen:0});
 }
+function groupHats(g){const w=(g.winners||[]).slice(0,g.hitGreen||0);return{offered:w.filter(x=>x.hatOffered||x.prize==="hat").length,chosen:w.filter(x=>x.prize==="hat").length};}
 
 function calcHours(){
   const h=state.header;
@@ -469,6 +580,10 @@ function updateSummary(){
   document.getElementById("sHatsEnd").textContent=parseInt(h2.hatsEnd)||0;
   document.getElementById("sHatsSold").textContent=parseInt(h2.hatsSold)||0;
   document.getElementById("sHatsGiven").textContent=parseInt(h2.hatsGiven)||0;
+  document.getElementById("sVouchers").textContent=parseInt(h2.vouchersUsed)||0;
+  document.getElementById("sHatsOffered").textContent=t.hatsOffered;
+  document.getElementById("sHatsChosen").textContent=t.hatsChosen;
+  document.getElementById("sGCAwarded").textContent=Math.max(0,t.greenHits-t.hatsChosen);
 }
 
 function renderAll(){renderGroups();updateSummary();updateTopbar();onHeaderChange();}
@@ -505,11 +620,16 @@ function buildPayload(isBackground){
       hitGreen:g.hitGreen??0,hio:g.hio?1:0,
       donationCash:parseFloat(g.donationCash)||0,
       donationElec:parseFloat(g.donationElec)||0,
-      notes:g.notes||""
+      notes:g.notes||"",
+      hatsOffered:groupHats(g).offered,hatsChosen:groupHats(g).chosen,
+      winners:(g.winners||[]).slice(0,g.hitGreen||0).map(w=>({name:(w.name||"").trim(),hatOffered:!!(w.hatOffered||w.prize==="hat"),prize:w.prize==="hat"?"hat":"gc"}))
     }));
   const notes=state.groups.filter(g=>g.notes&&g.notes.trim()).map((g,i)=>"Grp "+(i+1)+": "+g.notes.trim()).join(" | ");
   return{
-    staffName:h.staffName,course:h.course,date:h.date,
+    staffName:h.staffName,staffFirst:(h.staffFirst||"").trim(),staffLast:(h.staffLast||"").trim(),
+    course:h.course,date:h.date,localToday:todayStr(),
+    editingPastShift:state.pastShiftAck===pastAckKey(),
+    vouchersUsed:parseInt(h.vouchersUsed)||0,
     station:h.station,startTime:h.startTime,endTime:h.endTime,
     golfers:t.golfers,paying:t.paying,cash:t.cash,electronic:t.electronic,
     greenHits:t.greenHits,hio:t.hio,
@@ -633,8 +753,10 @@ function stateHash(){
       h:h,
       groups:(state.groups||[]).map(g=>({
         t:g.time,gf:g.golfers,p:g.paying,c:g.cash,e:g.electronic,
-        hg:g.hitGreen,hi:g.hio,dc:g.donationCash,de:g.donationElec,n:g.notes||""
+        hg:g.hitGreen,hi:g.hio,dc:g.donationCash,de:g.donationElec,n:g.notes||"",
+        w:(g.winners||[]).map(w=>[w.name||"",!!w.hatOffered,w.prize||"gc"])
       })),
+      ack:state.pastShiftAck===pastAckKey(),
       t:t
     };
     return JSON.stringify(sig);
@@ -646,7 +768,7 @@ function stateHash(){
 
 function submitToSheets(){
   const h=state.header;
-  if(!h.staffName||!h.course||!h.date){showError("Please fill in Staff Name, Course, and Date before submitting.");return;}
+  if(!h.staffFirst||!h.staffLast||!h.course||!h.date){showError("Please fill in your first and last name, Course, and Date before submitting.");return;}
   if(!runValidation())return;
   hideError();
   const btn=document.getElementById("submitBtn");
@@ -740,16 +862,19 @@ function updateLastConfirmedIndicator(){
 
 function newShift(){
   if(!confirm("Start a new shift? This will clear all current data."))return;
+  resetShift();
+}
+// keep: header values to carry into the new shift (name, course, hole).
+function resetShift(keep){
+  clearTimeout(_sheetSyncTimer);  // a pending sync must not fire for the new, empty shift
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(SHIFT_ID_KEY); // new shift gets a new UUID
   groupIdCounter=0;
   _lastSyncHash='';
   _corruptionDetected=false;
-  state={header:{staffName:"",course:"",date:todayStr(),station:"",startTime:"",endTime:"",giftCardsStart:"",giftCardsEnd:"",hatsStart:"",hatsEnd:"",hatsSold:"",hatsGiven:""},groups:[],sheetsSubmitted:false,lastSaved:null,shiftId:null};
+  state={header:{...blankHeader(),...(keep||{})},groups:[],sheetsSubmitted:false,lastSaved:null,shiftId:null,pastShiftAck:null,lastEditDay:todayStr()};
   for(let i=0;i<DEFAULT_GROUPS;i++)state.groups.push(newGroup());
-  ["staffName","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
-  document.getElementById("course").value="";
-  document.getElementById("date").value=todayStr();
+  HEADER_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value=state.header[id]||"";});
   const btn=document.getElementById("submitBtn");
   btn.textContent="Submit to Sheets";btn.className="btn btn-primary";btn.disabled=false;
   const sib=document.getElementById("shiftIdBox");if(sib)sib.style.display="none";
