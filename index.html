@@ -165,6 +165,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div class="field"><label>Gift Cards: Start</label><input type="number" id="giftCardsStart" min="0" step="1" placeholder="e.g. 50" inputmode="numeric" oninput="onHeaderInput()"></div>
       <div class="field"><label>Gift Cards: End</label><input type="number" id="giftCardsEnd" min="0" step="1" placeholder="e.g. 42" inputmode="numeric" oninput="onHeaderInput()"></div>
     </div>
+    <div class="group-warning" id="gcWarn"></div>
     <div class="shift-id-box" id="shiftIdBox" style="display:none">&#x1F511; Shift ID: <strong id="shiftIdLabel"></strong></div>
   </div>
 
@@ -239,7 +240,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmFGW57_kXIyj8
 const STORAGE_KEY = "girdie_shift_v3";
 const SHIFT_ID_KEY = "girdie_shift_id_v1"; // separate key — survives state corruption
 const PREV_SHIFT_KEY = "girdie_prev_shift_v1"; // copy of a past shift, kept when "Start today's shift" replaces it
-const CLIENT_VERSION = "2026.10.29-p03"; // written to the Sheet's Client Version column
+const CLIENT_VERSION = "2026.10.30-p03b"; // written to the Sheet's Client Version column
 const DEFAULT_GROUPS = 55;
 // Header fields bound one-to-one to an <input>/<select> with the same id.
 const HEADER_FIELDS = ["staffFirst","staffLast","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven","vouchersUsed"];
@@ -352,15 +353,15 @@ function duplicateLast(){if(!guardPastShift())return;const filled=state.groups.f
 function removeGroup(id){if(!guardPastShift())return;state.groups=state.groups.filter(g=>g.id!==id);renderGroups();updateSummary();debounceSave();}
 function setGroupField(id,field,val){if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g)return;g[field]=val;updateSummary();refreshGroupCard(id);debounceSave();debounceSheetSync();}
 // ── Per-win prize record ──
-// One entry per hit-the-green in the group: winner's name, whether a hat was
-// offered, and which prize they took ("gc" = $40 gift card, "hat").
-function syncWinners(g){const n=g.hitGreen||0;if(!Array.isArray(g.winners))g.winners=[];while(g.winners.length<n)g.winners.push({name:"",hatOffered:false,prize:"gc"});if(g.winners.length>n)g.winners.length=n;}
+// One entry per hit-the-green in the group: whether a hat was offered, and
+// which prize they took ("gc" = $40 gift card, "hat").
+function syncWinners(g){const n=g.hitGreen||0;if(!Array.isArray(g.winners))g.winners=[];while(g.winners.length<n)g.winners.push({hatOffered:false,prize:"gc"});if(g.winners.length>n)g.winners.length=n;}
 function winRowsHtml(g){
   syncWinners(g);
   if(!g.winners.length)return "";
   return `<div class="sel-label" style="margin-bottom:6px;">Winners</div>`+g.winners.map((w,i)=>
     `<div class="win-row">
-      <input class="notes-input" type="text" placeholder="Winner ${i+1}: first and last name" value="${(w.name||"").replace(/"/g,'&quot;')}" oninput="setWinner(${g.id},${i},this.value)">
+      <div class="sel-label" style="margin-bottom:5px;">Winner ${i+1}</div>
       <div class="win-btns">
         <button class="win-btn${w.hatOffered?' active':''}" onclick="toggleWinner(${g.id},${i},'offer')">Hat offered</button>
         <button class="win-btn${w.prize!=='hat'?' active':''}" onclick="toggleWinner(${g.id},${i},'gc')">Took card</button>
@@ -369,7 +370,6 @@ function winRowsHtml(g){
     </div>`).join("");
 }
 function renderWins(g){const el=document.getElementById("wins_"+g.id);if(el)el.innerHTML=winRowsHtml(g);}
-function setWinner(id,i,name){if(!guardPastShift())return;const g=state.groups.find(g=>g.id===id);if(!g||!g.winners[i])return;g.winners[i].name=name;debounceSave();debounceSheetSync();}
 function toggleWinner(id,i,what){
   if(_isScrolling)return;
   if(!guardPastShift())return;
@@ -584,6 +584,20 @@ function updateSummary(){
   document.getElementById("sHatsOffered").textContent=t.hatsOffered;
   document.getElementById("sHatsChosen").textContent=t.hatsChosen;
   document.getElementById("sGCAwarded").textContent=Math.max(0,t.greenHits-t.hatsChosen);
+  const gcMsg=gcMismatch(t), gw=document.getElementById("gcWarn");
+  if(gw){gw.textContent=gcMsg?"! "+gcMsg:"";gw.classList.toggle("show",!!gcMsg);}
+}
+// Gift cards handed out (Start minus End) must equal the winners who took a
+// card (wins minus "Took hat"). Checked only once both counts are filled in:
+// where the pro shop hands out the cards there is no stack at the tee.
+function gcMismatch(t){
+  const h=state.header;
+  if(h.giftCardsStart===""||h.giftCardsEnd===""||h.giftCardsStart==null||h.giftCardsEnd==null)return "";
+  t=t||computeTotals();
+  const given=(parseInt(h.giftCardsStart)||0)-(parseInt(h.giftCardsEnd)||0);
+  const cardWins=Math.max(0,t.greenHits-t.hatsChosen);
+  if(given===cardWins)return "";
+  return "Gift cards: Start minus End is "+given+", but "+cardWins+" winner"+(cardWins===1?"":"s")+" took a card.";
 }
 
 function renderAll(){renderGroups();updateSummary();updateTopbar();onHeaderChange();}
@@ -622,7 +636,7 @@ function buildPayload(isBackground){
       donationElec:parseFloat(g.donationElec)||0,
       notes:g.notes||"",
       hatsOffered:groupHats(g).offered,hatsChosen:groupHats(g).chosen,
-      winners:(g.winners||[]).slice(0,g.hitGreen||0).map(w=>({name:(w.name||"").trim(),hatOffered:!!(w.hatOffered||w.prize==="hat"),prize:w.prize==="hat"?"hat":"gc"}))
+      winners:(g.winners||[]).slice(0,g.hitGreen||0).map(w=>({hatOffered:!!(w.hatOffered||w.prize==="hat"),prize:w.prize==="hat"?"hat":"gc"}))
     }));
   const notes=state.groups.filter(g=>g.notes&&g.notes.trim()).map((g,i)=>"Grp "+(i+1)+": "+g.notes.trim()).join(" | ");
   return{
@@ -754,7 +768,7 @@ function stateHash(){
       groups:(state.groups||[]).map(g=>({
         t:g.time,gf:g.golfers,p:g.paying,c:g.cash,e:g.electronic,
         hg:g.hitGreen,hi:g.hio,dc:g.donationCash,de:g.donationElec,n:g.notes||"",
-        w:(g.winners||[]).map(w=>[w.name||"",!!w.hatOffered,w.prize||"gc"])
+        w:(g.winners||[]).map(w=>[!!w.hatOffered,w.prize||"gc"])
       })),
       ack:state.pastShiftAck===pastAckKey(),
       t:t
@@ -770,6 +784,8 @@ function submitToSheets(){
   const h=state.header;
   if(!h.staffFirst||!h.staffLast||!h.course||!h.date){showError("Please fill in your first and last name, Course, and Date before submitting.");return;}
   if(!runValidation())return;
+  const gcMsg=gcMismatch();
+  if(gcMsg&&!confirm(gcMsg+"\n\nRecount the cards or check the wins. Tap OK to submit anyway."))return;
   hideError();
   const btn=document.getElementById("submitBtn");
   btn.disabled=true;btn.textContent="Saving...";btn.className="btn btn-primary";
