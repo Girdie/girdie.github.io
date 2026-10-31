@@ -680,7 +680,9 @@ function sendToSheets(isBackground,onSuccess,onError){
   const body=JSON.stringify(payload);
   if(!isBackground)setSheetsStatus("pending","Submitting...");
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),15000);
+  // 40s: the server queues saves behind a lock (up to 30s wait), so a save
+  // made while another phone is saving can take well over 15s and still land.
+  const timeout=setTimeout(()=>controller.abort(),40000);
   // POST with text/plain content-type — this is a "simple" CORS request that
   // skips preflight (Apps Script web apps don't handle OPTIONS), while still
   // giving us a real readable response so we can confirm the write.
