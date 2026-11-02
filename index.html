@@ -96,7 +96,8 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .win-list { margin-bottom: 10px; }
 .win-row { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 6px; }
 .win-row .notes-input { padding: 8px 10px; margin-bottom: 6px; background: white; }
-.win-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+.win-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.win-btn.active.none { background: var(--text-mid); border-color: var(--text-mid); }
 .win-btn { height: 40px; background: white; border: 2px solid var(--border); border-radius: 8px; color: var(--text-dim); font-size: 12px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; touch-action: manipulation; padding: 0 4px; }
 .win-btn.active { background: #2ab8d0; border-color: #2ab8d0; color: white; }
 .win-btn.active.hat { background: #e87820; border-color: #e87820; }
@@ -240,7 +241,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmFGW57_kXIyj8
 const STORAGE_KEY = "girdie_shift_v3";
 const SHIFT_ID_KEY = "girdie_shift_id_v1"; // separate key — survives state corruption
 const PREV_SHIFT_KEY = "girdie_prev_shift_v1"; // copy of a past shift, kept when "Start today's shift" replaces it
-const CLIENT_VERSION = "2026.10.30-p03b"; // written to the Sheet's Client Version column
+const CLIENT_VERSION = "2026.11.02-p03c"; // written to the Sheet's Client Version column
 const DEFAULT_GROUPS = 55;
 // Header fields bound one-to-one to an <input>/<select> with the same id.
 const HEADER_FIELDS = ["staffFirst","staffLast","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven","vouchersUsed"];
@@ -363,9 +364,10 @@ function winRowsHtml(g){
     `<div class="win-row">
       <div class="sel-label" style="margin-bottom:5px;">Winner ${i+1}</div>
       <div class="win-btns">
-        <button class="win-btn${w.hatOffered?' active':''}" onclick="toggleWinner(${g.id},${i},'offer')">Hat offered</button>
-        <button class="win-btn${w.prize!=='hat'?' active':''}" onclick="toggleWinner(${g.id},${i},'gc')">Took card</button>
+        <button class="win-btn${w.prize!=='hat'&&w.prize!=='none'?' active':''}" onclick="toggleWinner(${g.id},${i},'gc')">Took card</button>
         <button class="win-btn${w.prize==='hat'?' active hat':''}" onclick="toggleWinner(${g.id},${i},'hat')">Took hat</button>
+        <button class="win-btn${w.prize==='none'?' active none':''}" onclick="toggleWinner(${g.id},${i},'none')">No prize</button>
+        <button class="win-btn${w.hatOffered?' active':''}" onclick="toggleWinner(${g.id},${i},'offer')">Hat offered</button>
       </div>
     </div>`).join("");
 }
@@ -375,8 +377,9 @@ function toggleWinner(id,i,what){
   if(!guardPastShift())return;
   const g=state.groups.find(g=>g.id===id);if(!g||!g.winners[i])return;
   const w=g.winners[i];
-  if(what==="offer"){w.hatOffered=!w.hatOffered;if(!w.hatOffered)w.prize="gc";}
+  if(what==="offer"){w.hatOffered=!w.hatOffered;if(!w.hatOffered&&w.prize==="hat")w.prize="gc";}
   else if(what==="hat"){w.prize="hat";w.hatOffered=true;}   // a winner can only take a hat they were offered
+  else if(what==="none"){w.prize="none";}                   // won, but turned down the prize
   else{w.prize="gc";}
   renderWins(g);updateSummary();debounceSave();debounceSheetSync();
 }
@@ -539,10 +542,13 @@ function computeTotals(){
       donationElec:acc.donationElec+(parseFloat(g.donationElec)||0),
       hatsOffered:acc.hatsOffered+groupHats(g).offered,
       hatsChosen:acc.hatsChosen+groupHats(g).chosen,
+      prizesDeclined:acc.prizesDeclined+groupHats(g).declined,
     };
-  },{golfers:0,paying:0,cash:0,electronic:0,greenHits:0,hio:0,donationCash:0,donationElec:0,hatsOffered:0,hatsChosen:0});
+  },{golfers:0,paying:0,cash:0,electronic:0,greenHits:0,hio:0,donationCash:0,donationElec:0,hatsOffered:0,hatsChosen:0,prizesDeclined:0});
 }
-function groupHats(g){const w=(g.winners||[]).slice(0,g.hitGreen||0);return{offered:w.filter(x=>x.hatOffered||x.prize==="hat").length,chosen:w.filter(x=>x.prize==="hat").length};}
+function groupHats(g){const w=(g.winners||[]).slice(0,g.hitGreen||0);return{offered:w.filter(x=>x.hatOffered||x.prize==="hat").length,chosen:w.filter(x=>x.prize==="hat").length,declined:w.filter(x=>x.prize==="none").length};}
+// Winners who took a $40 card: every win that is not a hat and not declined.
+function cardWins(t){return Math.max(0,t.greenHits-t.hatsChosen-t.prizesDeclined);}
 
 function calcHours(){
   const h=state.header;
@@ -583,21 +589,21 @@ function updateSummary(){
   document.getElementById("sVouchers").textContent=parseInt(h2.vouchersUsed)||0;
   document.getElementById("sHatsOffered").textContent=t.hatsOffered;
   document.getElementById("sHatsChosen").textContent=t.hatsChosen;
-  document.getElementById("sGCAwarded").textContent=Math.max(0,t.greenHits-t.hatsChosen);
+  document.getElementById("sGCAwarded").textContent=cardWins(t);
   const gcMsg=gcMismatch(t), gw=document.getElementById("gcWarn");
   if(gw){gw.textContent=gcMsg?"! "+gcMsg:"";gw.classList.toggle("show",!!gcMsg);}
 }
 // Gift cards handed out (Start minus End) must equal the winners who took a
-// card (wins minus "Took hat"). Checked only once both counts are filled in:
-// where the pro shop hands out the cards there is no stack at the tee.
+// card (wins minus "Took hat" minus "No prize"). Checked only once both counts
+// are filled in: where the pro shop hands out the cards there is no stack at the tee.
 function gcMismatch(t){
   const h=state.header;
   if(h.giftCardsStart===""||h.giftCardsEnd===""||h.giftCardsStart==null||h.giftCardsEnd==null)return "";
   t=t||computeTotals();
   const given=(parseInt(h.giftCardsStart)||0)-(parseInt(h.giftCardsEnd)||0);
-  const cardWins=Math.max(0,t.greenHits-t.hatsChosen);
-  if(given===cardWins)return "";
-  return "Gift cards: Start minus End is "+given+", but "+cardWins+" winner"+(cardWins===1?"":"s")+" took a card.";
+  const cards=cardWins(t);
+  if(given===cards)return "";
+  return "Gift cards: Start minus End is "+given+", but "+cards+" winner"+(cards===1?"":"s")+" took a card. If a winner turned the prize down, tap No prize on that win.";
 }
 
 function renderAll(){renderGroups();updateSummary();updateTopbar();onHeaderChange();}
@@ -635,8 +641,8 @@ function buildPayload(isBackground){
       donationCash:parseFloat(g.donationCash)||0,
       donationElec:parseFloat(g.donationElec)||0,
       notes:g.notes||"",
-      hatsOffered:groupHats(g).offered,hatsChosen:groupHats(g).chosen,
-      winners:(g.winners||[]).slice(0,g.hitGreen||0).map(w=>({hatOffered:!!(w.hatOffered||w.prize==="hat"),prize:w.prize==="hat"?"hat":"gc"}))
+      hatsOffered:groupHats(g).offered,hatsChosen:groupHats(g).chosen,prizesDeclined:groupHats(g).declined,
+      winners:(g.winners||[]).slice(0,g.hitGreen||0).map(w=>({hatOffered:!!(w.hatOffered||w.prize==="hat"),prize:w.prize==="hat"||w.prize==="none"?w.prize:"gc"}))
     }));
   const notes=state.groups.filter(g=>g.notes&&g.notes.trim()).map((g,i)=>"Grp "+(i+1)+": "+g.notes.trim()).join(" | ");
   return{
@@ -787,7 +793,7 @@ function submitToSheets(){
   if(!h.staffFirst||!h.staffLast||!h.course||!h.date){showError("Please fill in your first and last name, Course, and Date before submitting.");return;}
   if(!runValidation())return;
   const gcMsg=gcMismatch();
-  if(gcMsg&&!confirm(gcMsg+"\n\nRecount the cards or check the wins. Tap OK to submit anyway."))return;
+  if(gcMsg&&!confirm(gcMsg+"\n\nOK: submit anyway.\nCancel: go back and fix it."))return;
   hideError();
   const btn=document.getElementById("submitBtn");
   btn.disabled=true;btn.textContent="Saving...";btn.className="btn btn-primary";
