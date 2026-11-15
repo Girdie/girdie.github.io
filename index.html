@@ -90,6 +90,15 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--surface2); color: var(--text-mid); border: 2px solid var(--border); }
 .shift-id-box { background: var(--blue-light); border: 1px solid #c0d0f0; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 11px; color: var(--blue); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.bonus-bar { background: #232b55; padding: 6px 12px 7px; position: sticky; top: 106px; z-index: 98; box-shadow: 0 2px 10px rgba(26,32,64,0.25); }
+.bonus-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.b-cell { background: rgba(255,255,255,0.07); border-radius: 8px; padding: 4px 2px 5px; text-align: center; }
+.b-val { font-size: 18px; font-weight: 700; color: white; font-family: 'Playfair Display', serif; line-height: 1.15; }
+.b-label { font-size: 8.5px; font-weight: 600; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+.b-hint { font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.8); text-align: center; margin-top: 5px; line-height: 1.25; }
+.bonus-bar.part #bAmt { color: #f0b040; }
+.bonus-bar.on #bAmt { color: #8fe83a; }
+.bonus-bar.on .b-hint { color: #c9f59a; }
 .summary-bar { background: #1a2040; border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
 .summary-bar-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 12px; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
@@ -131,6 +140,14 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     </div>
     <span class="sheets-badge pending" id="sheetsBadge">&#x23F3; Not Saved Yet</span>
   </div>
+</div>
+<div class="bonus-bar none" id="bonusBar">
+  <div class="bonus-cells">
+    <div class="b-cell"><div class="b-val" id="bOptIn">--</div><div class="b-label">Opt-in</div></div>
+    <div class="b-cell"><div class="b-val" id="bGph">--</div><div class="b-label">Golfers/hr</div></div>
+    <div class="b-cell"><div class="b-val" id="bAmt">--</div><div class="b-label">Est. bonus</div></div>
+  </div>
+  <div class="b-hint" id="bHint"></div>
 </div>
 <div class="main">
   <div id="pastBanner" class="past-banner" style="display:none"><div id="pastBannerMsg"></div><button onclick="startShiftForToday()">Start today's shift</button></div>
@@ -212,6 +229,10 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div class="s-stat"><div class="s-val teal" id="sCash">$0</div><div class="s-label">Cash Collected</div></div>
       <div class="s-stat"><div class="s-val gold" id="sDonations">$0</div><div class="s-label">Donations</div></div>
     </div>
+    <div class="summary-grid" style="grid-template-columns:repeat(2,1fr)">
+      <div class="s-stat"><div class="s-val" id="sOptIn">--</div><div class="s-label">Opt-In</div></div>
+      <div class="s-stat"><div class="s-val teal" id="sBonus">--</div><div class="s-label">Est. Bonus</div></div>
+    </div>
     <div class="summary-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="s-stat"><div class="s-val" id="sGCStart">0</div><div class="s-label">GC Start</div></div>
       <div class="s-stat"><div class="s-val" id="sGCEnd">0</div><div class="s-label">GC End</div></div>
@@ -241,7 +262,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmFGW57_kXIyj8
 const STORAGE_KEY = "girdie_shift_v3";
 const SHIFT_ID_KEY = "girdie_shift_id_v1"; // separate key — survives state corruption
 const PREV_SHIFT_KEY = "girdie_prev_shift_v1"; // copy of a past shift, kept when "Start today's shift" replaces it
-const CLIENT_VERSION = "2026.11.02-p03c"; // written to the Sheet's Client Version column
+const CLIENT_VERSION = "2026.11.15-bonus"; // written to the Sheet's Client Version column
 const DEFAULT_GROUPS = 55;
 // Header fields bound one-to-one to an <input>/<select> with the same id.
 const HEADER_FIELDS = ["staffFirst","staffLast","course","date","station","startTime","endTime","giftCardsStart","giftCardsEnd","hatsStart","hatsEnd","hatsSold","hatsGiven","vouchersUsed"];
@@ -295,7 +316,7 @@ function buildShiftLabel(h){
   return[h.staffName.trim(),h.course.trim(),h.date,h.station].join(" / ");
 }
 
-window.onload=function(){loadFromLocal();if(state.groups.length===0){for(let i=0;i<DEFAULT_GROUPS;i++)state.groups.push(newGroup());}renderAll();scheduleAutoSubmit();};
+window.onload=function(){loadFromLocal();if(state.groups.length===0){for(let i=0;i<DEFAULT_GROUPS;i++)state.groups.push(newGroup());}renderAll();scheduleAutoSubmit();placeBonusBar();window.addEventListener('resize',placeBonusBar);setInterval(updateBonus,30000);};
 
 function saveToLocal(){try{state.lastSaved=new Date().toISOString();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setLocalStatus("saved");}catch(e){setLocalStatus("error");}}
 function loadFromLocal(){
@@ -559,6 +580,85 @@ function calcHours(){
   return diff>0?Math.round(diff*100)/100:null;
 }
 
+// ── Live bonus tracker ───────────────────────────────────────────
+// Shows the staffer, during the shift, the two numbers the incentive is paid on
+// (opt-in and golfers per hour) and the bonus they are on pace for.
+// Dollars: payout(p,g) = 0.33 x 7 x (7.2 x p x g - 40), the Staffing Incentives matrix.
+// p = opt-in floored to 5%, g = golfers/hr floored to a whole number.
+// Keep BONUS_RULES in step with calcBonus() in Code.js.
+const BONUS_RULES={
+  "default":{minGph:15,maxGph:24,scaleShort:true},     // Philadelphia: 7-hour shifts, shorter shifts pro-rated
+  "Jacaranda":{minGph:18,maxGph:28,scaleShort:false}   // Nov 2026 pilot matrix: starts at 18/hr, full dollars on a 5-hour shift
+};
+const BONUS_MIN_OPTIN=50, BONUS_MAX_OPTIN=95;
+function bonusRule(){return BONUS_RULES[state.header.course]||BONUS_RULES["default"];}
+function bonusCell(pct,gph){return Math.max(0,Math.round(2.31*(7.2*(pct/100)*gph-40)));}
+// Hours to divide golfers by. While the shift is running (today, before End Time)
+// it is the time since Start Time, so the pace is live. Afterwards it is Start to End.
+function paceHours(){
+  const h=state.header, sched=calcHours();
+  if(h.startTime&&h.date===todayStr()){
+    const d=new Date(), now=d.getHours()*60+d.getMinutes();
+    const sp=h.startTime.split(":").map(Number), start=sp[0]*60+sp[1];
+    let end=null;
+    if(h.endTime){const ep=h.endTime.split(":").map(Number);end=ep[0]*60+ep[1];}
+    if(now>=start&&(end===null||now<end)){
+      const el=(now-start)/60;
+      return {hours:el>=0.25?el:null,live:true};
+    }
+  }
+  return {hours:sched,live:false};
+}
+function bonusStatus(t){
+  t=t||computeTotals();
+  const rule=bonusRule(), ph=paceHours();
+  const optIn=t.golfers>0?(t.paying/t.golfers)*100:null;
+  const gph=(ph.hours&&t.golfers>0)?t.golfers/ph.hours:null;
+  const r={optIn:optIn,gph:gph,amount:null,level:"none",hint:""};
+  if(optIn===null){r.hint="Bonus starts at "+BONUS_MIN_OPTIN+"% opt-in and "+rule.minGph+" golfers an hour.";return r;}
+  const more=function(pct){return Math.max(1,Math.ceil(pct/100*t.golfers-1e-9)-t.paying);};
+  const players=function(n){return n+" more player"+(n===1?"":"s");};
+  const optOk=optIn>=BONUS_MIN_OPTIN, paceOk=gph!==null&&gph>=rule.minGph;
+  if(!optOk){
+    r.amount=0;r.level=paceOk?"part":"none";
+    r.hint=players(more(BONUS_MIN_OPTIN))+" gets you to "+BONUS_MIN_OPTIN+"% opt-in."+(gph!==null&&!paceOk?" Pace also needs "+rule.minGph+" an hour.":"");
+    return r;
+  }
+  if(gph===null){
+    r.level="part";
+    r.hint=!state.header.startTime?"Opt-in is there. Enter your Start Time to see golfers per hour.":(ph.live?"Opt-in is there. Golfers per hour shows 15 minutes into the shift.":"Opt-in is there. Enter Start and End Time to see golfers per hour.");
+    return r;
+  }
+  if(!paceOk){
+    r.amount=0;r.level="part";
+    r.hint="Opt-in is there. Pace needs "+rule.minGph+" golfers an hour. Log every group.";
+    return r;
+  }
+  const step=Math.min(BONUS_MAX_OPTIN,Math.floor(optIn/5+1e-9)*5);
+  const g=Math.min(rule.maxGph,Math.floor(gph+1e-9));
+  const scale=(rule.scaleShort&&!ph.live&&ph.hours<7)?ph.hours/7:1;
+  r.amount=Math.round(bonusCell(step,g)*scale);r.level="on";
+  if(step<BONUS_MAX_OPTIN){
+    const next=step+5;
+    r.hint=players(more(next))+" gets you to "+next+"% and $"+Math.round(bonusCell(next,g)*scale)+".";
+  }else{r.hint="Top opt-in step. Keep the pace up.";}
+  return r;
+}
+function updateBonus(t){
+  const r=bonusStatus(t&&typeof t.golfers==="number"?t:null);
+  const optTxt=r.optIn===null?"--":Math.floor(r.optIn+1e-9)+"%";
+  const gphTxt=r.gph===null?"--":r.gph.toFixed(1);
+  const amtTxt=r.amount===null?"--":"$"+r.amount;
+  const set=function(id,v){const el=document.getElementById(id);if(el)el.textContent=v;};
+  set("bOptIn",optTxt);set("bGph",gphTxt);set("bAmt",amtTxt);set("bHint",r.hint);
+  set("sOptIn",optTxt);set("sGolfersHr",gphTxt);set("sBonus",amtTxt);
+  const bar=document.getElementById("bonusBar");if(bar)bar.className="bonus-bar "+r.level;
+}
+// The strip sits under the two bars that are already pinned.
+function placeBonusBar(){
+  const tb=document.querySelector(".topbar"), sb=document.querySelector(".save-bar"), bar=document.getElementById("bonusBar");
+  if(tb&&sb&&bar)bar.style.top=(tb.offsetHeight+sb.offsetHeight)+"px";
+}
 function updateSummary(){
   const t=computeTotals();
   const hours=calcHours();
@@ -573,7 +673,7 @@ function updateSummary(){
   document.getElementById("sGreen").textContent=t.greenHits;
   document.getElementById("sHio").textContent=t.hio;
   document.getElementById("sHours").textContent=hours!==null?hours.toFixed(1)+"h":"--";
-  document.getElementById("sGolfersHr").textContent=hours&&t.golfers>0?(t.golfers/hours).toFixed(1):"--";
+  updateBonus(t);   // opt-in, golfers/hr and est. bonus: the pinned strip and the totals tiles
   document.getElementById("sCash").textContent="$"+(totalCash).toFixed(0);
   document.getElementById("sDonations").textContent="$"+totalDonations.toFixed(2);
   // Gift card + hat inventory (from the header fields)
